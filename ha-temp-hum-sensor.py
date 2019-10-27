@@ -1,16 +1,14 @@
 #!/usr/bin/python
 import time
+import datetime
 
 import Adafruit_DHT
 import paho.mqtt.client as mqtt
 
 sensor = Adafruit_DHT.DHT22
 pin = 4
-value_average_count = 5
-
 startup_readings = 3
-temp_storage = []
-hum_storage = []
+send_interval = datetime.timedelta(seconds=60)
 
 mqtt_client_name = 'my-pi'
 mqtt_host = 'broker.host'
@@ -18,12 +16,11 @@ mqtt_port = 1883
 mqtt_user = 'user'
 mqtt_pass = 'pass'
 
-
 def get_sensor_values():
     return Adafruit_DHT.read_retry(sensor, pin)
 
 
-def compute_temp(mqtt_client, temp):
+def compute_temp(temp):
     global temp_storage
     if temp is not None and -20 < temp < 50:
         if len(temp_storage) == 0 or abs(temp_storage[len(temp_storage) - 1] - temp) < 10:
@@ -31,26 +28,14 @@ def compute_temp(mqtt_client, temp):
     else:
         print('Ignoring temp: ' + str(temp))
 
-    if len(temp_storage) == value_average_count:
-        average = calc_average(temp_storage)
-        mqtt_client.publish(mqtt_temp_sensor_topic, average, retain=True)
-        print("Sending: " + str(average) + '°C')
-        temp_storage.clear()
 
-
-def compute_huminity(mqtt_client, hum):
+def compute_huminity(hum):
     global hum_storage
     if hum is not None and 0 < hum < 100:
         if len(hum_storage) == 0 or abs(hum_storage[len(hum_storage) - 1] - hum) < 10:
             hum_storage.append(hum)
     else:
         print('Ignoring hum: ' + str(hum))
-
-    if len(hum_storage) == value_average_count:
-        average = calc_average(hum_storage)
-        mqtt_client.publish(mqtt_hum_sensor_topic, average, retain=True)
-        print("Sending: " + str(average) + '%')
-        hum_storage.clear()
 
 
 def calc_average(array):
@@ -87,13 +72,27 @@ def send_ha_autodiscovery(mqtt_client):
     mqtt_client.publish(hum_topic, ha_discover_content_hum, retain=True)
 
 
+def send_measurements(mqtt_client):
+    average_temp = calc_average(temp_storage)
+    average_hum = calc_average(hum_storage)
+
+    mqtt_client.publish(mqtt_temp_sensor_topic, average_temp, retain=True)
+    mqtt_client.publish(mqtt_hum_sensor_topic, average_hum, retain=True)
+    print("Sending: " + str(average_temp) + '°C and ' + str(average_hum) + '%')
+    temp_storage.clear()
+    hum_storage.clear()
+
+
 mqtt_prefix = mqtt_client_name + '/sensor/'
 mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
 mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
-
+temp_storage = []
+hum_storage = []
+last_measurement_sent = datetime.datetime.now()
 
 def main():
     global startup_readings
+    global last_measurement_sent
 
     mqtt_client = mqtt.Client(mqtt_client_name)
     mqtt_client.on_connect = on_mqtt_connect
@@ -105,8 +104,12 @@ def main():
         humidity, temperature = get_sensor_values()
 
         if startup_readings == 0:
-            compute_temp(mqtt_client, temperature)
-            compute_huminity(mqtt_client, humidity)
+            compute_temp(temperature)
+            compute_huminity(humidity)
+
+            if last_measurement_sent < datetime.datetime.now() - send_interval:
+                last_measurement_sent = datetime.datetime.now()
+                send_measurements(mqtt_client)
 
             mqtt_client.loop()
             time.sleep(5)
