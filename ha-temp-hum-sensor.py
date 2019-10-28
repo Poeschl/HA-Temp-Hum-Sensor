@@ -57,15 +57,18 @@ def send_ha_autodiscovery(mqtt_client):
     ha_discover_content_temp = '{"name":"%s Temperature",' \
                                '"device_class":"temperature",' \
                                '"unit_of_measurement":"°C",' \
-                               '"state_topic": "%s"}' % (mqtt_client_name, mqtt_temp_sensor_topic)
+                               '"state_topic": "%s", \
+                               "availability_topic":"%s"}' % (mqtt_client_name, mqtt_temp_sensor_topic, mqtt_availability_topic)
     ha_discover_content_hum = '{"name":"%s Humidity",' \
                               '"device_class":"humidity",' \
                               '"unit_of_measurement":"%%",' \
-                              '"state_topic": "%s"}' % (mqtt_client_name, mqtt_hum_sensor_topic)
+                              '"state_topic": "%s", \
+                               "availability_topic":"%s"}' % (mqtt_client_name, mqtt_hum_sensor_topic, mqtt_availability_topic)
 
     temp_topic = ha_discover_topic_template % (mqtt_client_name, 'temperature')
     hum_topic = ha_discover_topic_template % (mqtt_client_name, 'humidity')
 
+    mqtt_client.publish(mqtt_availability_topic, 'online', retain=True)
     mqtt_client.publish(temp_topic, ha_discover_content_temp, retain=True)
     mqtt_client.publish(hum_topic, ha_discover_content_hum, retain=True)
 
@@ -84,11 +87,13 @@ def send_measurements(mqtt_client):
 
 
 mqtt_prefix = mqtt_client_name + '/sensor/'
+mqtt_availability_topic = mqtt_prefix + 'availability'
 mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
 mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
 temp_storage = []
 hum_storage = []
 last_measurement_sent = datetime.datetime.now()
+
 
 def main():
     global startup_readings
@@ -97,6 +102,8 @@ def main():
     mqtt_client = mqtt.Client(mqtt_client_name)
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.username_pw_set(mqtt_user, mqtt_pass)
+    mqtt_client.will_set(mqtt_availability_topic, 'offline', retain=True)
+
     mqtt_client.connect(mqtt_host, mqtt_port)
 
     while True:
