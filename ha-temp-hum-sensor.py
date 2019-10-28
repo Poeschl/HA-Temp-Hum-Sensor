@@ -21,7 +21,6 @@ def get_sensor_values():
 
 
 def compute_temp(temp):
-    global temp_storage
     if temp is not None and -20 < temp < 50:
         if len(temp_storage) == 0 or abs(temp_storage[len(temp_storage) - 1] - temp) < 10:
             temp_storage.append(temp)
@@ -30,7 +29,6 @@ def compute_temp(temp):
 
 
 def compute_huminity(hum):
-    global hum_storage
     if hum is not None and 0 < hum < 100:
         if len(hum_storage) == 0 or abs(hum_storage[len(hum_storage) - 1] - hum) < 10:
             hum_storage.append(hum)
@@ -73,6 +71,8 @@ def send_ha_autodiscovery(mqtt_client):
 
 
 def send_measurements(mqtt_client):
+    global temp_storage
+    global hum_storage
     average_temp = calc_average(temp_storage)
     average_hum = calc_average(hum_storage)
 
