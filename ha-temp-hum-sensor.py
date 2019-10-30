@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 sensor = Adafruit_DHT.DHT22
 pin = 4
 startup_readings = 3
-send_interval = datetime.timedelta(seconds=60)
+send_interval = datetime.timedelta(minutes=2)
 
 mqtt_client_name = 'my-pi'
 mqtt_host = 'broker.host'
