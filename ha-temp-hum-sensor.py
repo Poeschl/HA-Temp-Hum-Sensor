@@ -17,6 +17,7 @@ mqtt_user = 'user'
 mqtt_pass = 'pass'
 
 def get_sensor_values():
+    time.sleep(2)
     return Adafruit_DHT.read_retry(sensor, pin)
 
 
