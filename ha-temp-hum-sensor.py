@@ -94,7 +94,7 @@ mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
 temp_storage = []
 hum_storage = []
 last_measurement_sent = datetime.datetime.now()
-raw_data_file = open('/home/pi/temp-hum-sensor-raw_temp.txt', 'a+')
+raw_data_file = open('/home/pi/temp-hum-sensor-raw_temp.csv', 'a+')
 
 def main():
     global startup_readings
@@ -115,6 +115,7 @@ def main():
             compute_temp(temperature)
             compute_huminity(humidity)
             raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
+            raw_data_file.flush()
 
             if last_measurement_sent < datetime.datetime.now() - send_interval:
                 last_measurement_sent = datetime.datetime.now()
