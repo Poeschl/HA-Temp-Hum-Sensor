@@ -105,9 +105,9 @@ def main():
     mqtt_client.will_set(mqtt_availability_topic, 'offline', retain=True)
 
     mqtt_client.connect(mqtt_host, mqtt_port)
+    mqtt_client.loop_start()
 
     while True:
-        mqtt_client.loop()
         humidity, temperature = get_sensor_values()
 
         if startup_readings == 0:
@@ -119,8 +119,6 @@ def main():
                 last_measurement_sent = datetime.datetime.now()
                 send_measurements(mqtt_client)
 
-            mqtt_client.loop()
-            time.sleep(5)
         else:
             # Skip the first readings to get the sensor running
             startup_readings = startup_readings - 1
