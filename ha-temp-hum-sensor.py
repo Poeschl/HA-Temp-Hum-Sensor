@@ -79,8 +79,8 @@ def send_measurements(mqtt_client):
     average_temp = calc_average(temp_storage)
     average_hum = calc_average(hum_storage)
 
-    mqtt_client.publish(mqtt_temp_sensor_topic, average_temp, retain=True)
-    mqtt_client.publish(mqtt_hum_sensor_topic, average_hum, retain=True)
+    mqtt_client.publish(mqtt_temp_sensor_topic, average_temp)
+    mqtt_client.publish(mqtt_hum_sensor_topic, average_hum)
     print("Sending: " + str(average_temp) + '°C and ' + str(average_hum) + '%')
     temp_storage.clear()
     hum_storage.clear()
