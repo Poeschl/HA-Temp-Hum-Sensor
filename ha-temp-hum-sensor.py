@@ -24,7 +24,6 @@ def compute_temp(temp):
     if temp is not None and -20 < temp < 40:
         if len(temp_storage) == 0 or abs(temp_storage[len(temp_storage) - 1] - temp) < 10:
             temp_storage.append(temp)
-            temp_raw_data_file.write("%s\n" % str(temp))
     else:
         print('Ignoring temp: ' + str(temp))
 
@@ -33,7 +32,6 @@ def compute_huminity(hum):
     if hum is not None and 0 < hum < 100:
         if len(hum_storage) == 0 or abs(hum_storage[len(hum_storage) - 1] - hum) < 10:
             hum_storage.append(hum)
-            hum_raw_data_file.write("%s\n" % str(hum))
     else:
         print('Ignoring hum: ' + str(hum))
 
@@ -95,8 +93,7 @@ mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
 temp_storage = []
 hum_storage = []
 last_measurement_sent = datetime.datetime.now()
-temp_raw_data_file = open('/var/log/temp-hum-sensor-raw_temp.txt', 'a+')
-hum_raw_data_file = open('/var/log/temp-hum-sensor-raw_hum.txt', 'a+')
+raw_data_file = open('/home/pi/temp-hum-sensor-raw_temp.txt', 'a+')
 
 def main():
     global startup_readings
@@ -116,6 +113,7 @@ def main():
         if startup_readings == 0:
             compute_temp(temperature)
             compute_huminity(humidity)
+            raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
 
             if last_measurement_sent < datetime.datetime.now() - send_interval:
                 last_measurement_sent = datetime.datetime.now()
