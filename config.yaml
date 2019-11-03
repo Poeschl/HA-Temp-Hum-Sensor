@@ -1,0 +1,9 @@
+mqtt:
+  client: 'my-pi'
+  host: 'broker.host'
+  port: 1883
+  user: 'user'
+  pass: 'pass'
+pin: 4
+#interval in minutes
+send_interval: 2

@@ -4,22 +4,14 @@ import time
 
 import Adafruit_DHT
 import paho.mqtt.client as mqtt
+import yaml
 
 log_out_flag = False
 
 sensor = Adafruit_DHT.DHT22
-pin = 4
 startup_readings = 3
 
-send_interval = datetime.timedelta(minutes=2)
 smoothing_alpha = 0.25
-
-mqtt_client_name = 'my-pi'
-mqtt_host = 'broker.host'
-mqtt_port = 1883
-mqtt_user = 'user'
-mqtt_pass = 'pass'
-
 
 def get_sensor_values():
     time.sleep(5)
@@ -111,22 +103,53 @@ def send_measurements(mqtt_client):
     last_hum = filtered_hum
 
 
-mqtt_prefix = mqtt_client_name + '/sensor/'
-mqtt_availability_topic = mqtt_prefix + 'availability'
-mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
-mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
+def parse_config():
+    global send_interval, pin, mqtt_client_name, mqtt_host, mqtt_port, mqtt_user, mqtt_pass, mqtt_prefix, mqtt_availability_topic, \
+        mqtt_temp_sensor_topic, mqtt_hum_sensor_topic
+
+    with open('config.yaml') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+        send_interval = datetime.timedelta(minutes=config['send_interval'])
+        pin = config['pin']
+        mqtt_client_name = config['mqtt']['client']
+        mqtt_host = config['mqtt']['host']
+        mqtt_port = config['mqtt']['port']
+        mqtt_user = config['mqtt']['user']
+        mqtt_pass = config['mqtt']['pass']
+
+    mqtt_prefix = mqtt_client_name + '/sensor/'
+    mqtt_availability_topic = mqtt_prefix + 'availability'
+    mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
+    mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
+
+
+send_interval = None
+pin = None
+mqtt_client_name = None
+mqtt_host = None
+mqtt_port = None
+mqtt_user = None
+mqtt_pass = None
+mqtt_prefix = None
+mqtt_availability_topic = None
+mqtt_temp_sensor_topic = None
+mqtt_hum_sensor_topic = None
+
 temp_storage = []
 hum_storage = []
 last_temp = None
 last_hum = None
 last_measurement_sent = datetime.datetime.now()
-raw_data_file = open('/home/pi/temp-hum-sensor-raw.csv', 'a+')
-filtered_data_file = open('/home/pi/temp-hum-sensor-filtered.csv', 'a+')
+if log_out_flag:
+    raw_data_file = open('/home/pi/temp-hum-sensor-raw.csv', 'a+')
+    filtered_data_file = open('/home/pi/temp-hum-sensor-filtered.csv', 'a+')
 
 
 def main():
-    global startup_readings
-    global last_measurement_sent
+    global startup_readings, last_measurement_sent
+
+    parse_config()
 
     mqtt_client = mqtt.Client(mqtt_client_name)
     mqtt_client.on_connect = on_mqtt_connect
