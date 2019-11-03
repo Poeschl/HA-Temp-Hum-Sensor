@@ -1,10 +1,11 @@
 #!/usr/bin/python
-import time
 import datetime
+import time
 
 import Adafruit_DHT
 import paho.mqtt.client as mqtt
 
+log_out_flag = False
 sensor = Adafruit_DHT.DHT22
 pin = 4
 startup_readings = 3
@@ -15,6 +16,7 @@ mqtt_host = 'broker.host'
 mqtt_port = 1883
 mqtt_user = 'user'
 mqtt_pass = 'pass'
+
 
 def get_sensor_values():
     time.sleep(2)
@@ -96,6 +98,7 @@ hum_storage = []
 last_measurement_sent = datetime.datetime.now()
 raw_data_file = open('/home/pi/temp-hum-sensor-raw_temp.csv', 'a+')
 
+
 def main():
     global startup_readings
     global last_measurement_sent
@@ -114,8 +117,9 @@ def main():
         if startup_readings == 0:
             compute_temp(temperature)
             compute_huminity(humidity)
-            raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
-            raw_data_file.flush()
+            if log_out_flag:
+                raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
+                raw_data_file.flush()
 
             if last_measurement_sent < datetime.datetime.now() - send_interval:
                 last_measurement_sent = datetime.datetime.now()
