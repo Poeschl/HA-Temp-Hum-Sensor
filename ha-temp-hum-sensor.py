@@ -13,6 +13,7 @@ startup_readings = 3
 
 smoothing_alpha = 0.25
 
+
 def get_sensor_values():
     time.sleep(5)
     return Adafruit_DHT.read_retry(sensor, pin)
@@ -45,11 +46,11 @@ def calc_average(array):
 
 def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
-        print('Connected to broker(' + mqtt_host + ').')
+        print('Connected to broker({0}).'.format(str(mqtt_host)))
         send_ha_autodiscovery(client)
         print('Sent autodiscovery for HA')
     else:
-        print('Not connect to broker(' + mqtt_host + '). Errorcode: ' + str(rc))
+        print('Not connect to broker({0}). Errorcode: {1}'.format(str(mqtt_host), str(rc)))
 
 
 def send_ha_autodiscovery(mqtt_client):
@@ -64,17 +65,22 @@ def send_ha_autodiscovery(mqtt_client):
                               '"unit_of_measurement":"%%",' \
                               '"state_topic": "%s", \
                                "availability_topic":"%s"}' % (mqtt_client_name, mqtt_hum_sensor_topic, mqtt_availability_topic)
+    ha_discover_content_invalid = '{"name":"%s Invalid measurements",' \
+                                  '"state_topic": "%s", \
+                                   "availability_topic":"%s"}' % (mqtt_client_name, mqtt_invalid_sensor_topic, mqtt_availability_topic)
 
     temp_topic = ha_discover_topic_template % (mqtt_client_name, 'temperature')
     hum_topic = ha_discover_topic_template % (mqtt_client_name, 'humidity')
+    invalid_topic = ha_discover_topic_template % (mqtt_client_name, 'invalid')
 
     mqtt_client.publish(mqtt_availability_topic, 'online', retain=True)
     mqtt_client.publish(temp_topic, ha_discover_content_temp, retain=True)
     mqtt_client.publish(hum_topic, ha_discover_content_hum, retain=True)
+    mqtt_client.publish(invalid_topic, ha_discover_content_invalid, retain=True)
 
 
 def send_measurements(mqtt_client):
-    global temp_storage, hum_storage, last_temp, last_hum
+    global temp_storage, hum_storage, last_temp, last_hum, invalid_measure_count
 
     average_temp = calc_average(temp_storage)
     average_hum = calc_average(hum_storage)
@@ -91,6 +97,7 @@ def send_measurements(mqtt_client):
 
     mqtt_client.publish(mqtt_temp_sensor_topic, filtered_temp)
     mqtt_client.publish(mqtt_hum_sensor_topic, filtered_hum)
+    mqtt_client.publish(mqtt_invalid_sensor_topic, invalid_measure_count)
 
     print("Sending: " + str(average_temp) + '°C and ' + str(average_hum) + '%')
     if log_out_flag:
@@ -101,11 +108,12 @@ def send_measurements(mqtt_client):
     hum_storage.clear()
     last_temp = filtered_temp
     last_hum = filtered_hum
+    invalid_measure_count = 0
 
 
 def parse_config():
     global send_interval, pin, mqtt_client_name, mqtt_host, mqtt_port, mqtt_user, mqtt_pass, mqtt_prefix, mqtt_availability_topic, \
-        mqtt_temp_sensor_topic, mqtt_hum_sensor_topic
+        mqtt_temp_sensor_topic, mqtt_hum_sensor_topic, mqtt_invalid_sensor_topic
 
     with open('config.yaml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -122,6 +130,7 @@ def parse_config():
     mqtt_availability_topic = mqtt_prefix + 'availability'
     mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
     mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
+    mqtt_invalid_sensor_topic = mqtt_prefix + 'invalid/state'
 
 
 send_interval = None
@@ -135,19 +144,22 @@ mqtt_prefix = None
 mqtt_availability_topic = None
 mqtt_temp_sensor_topic = None
 mqtt_hum_sensor_topic = None
+mqtt_invalid_sensor_topic = None
 
 temp_storage = []
 hum_storage = []
 last_temp = None
 last_hum = None
 last_measurement_sent = datetime.datetime.now()
+invalid_measure_count = 0
+
 if log_out_flag:
     raw_data_file = open('/home/pi/temp-hum-sensor-raw.csv', 'a+')
     filtered_data_file = open('/home/pi/temp-hum-sensor-filtered.csv', 'a+')
 
 
 def main():
-    global startup_readings, last_measurement_sent
+    global startup_readings, last_measurement_sent, invalid_measure_count
 
     parse_config()
 
@@ -168,6 +180,8 @@ def main():
             if log_out_flag:
                 raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
                 raw_data_file.flush()
+            if humidity is None or temperature is None:
+                invalid_measure_count = invalid_measure_count + 1
 
             if last_measurement_sent < datetime.datetime.now() - send_interval:
                 last_measurement_sent = datetime.datetime.now()
