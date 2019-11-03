@@ -6,10 +6,13 @@ import Adafruit_DHT
 import paho.mqtt.client as mqtt
 
 log_out_flag = False
+
 sensor = Adafruit_DHT.DHT22
 pin = 4
 startup_readings = 3
+
 send_interval = datetime.timedelta(minutes=2)
+smoothing_alpha = 0.25
 
 mqtt_client_name = 'my-pi'
 mqtt_host = 'broker.host'
@@ -19,24 +22,26 @@ mqtt_pass = 'pass'
 
 
 def get_sensor_values():
-    time.sleep(2)
+    time.sleep(5)
     return Adafruit_DHT.read_retry(sensor, pin)
 
 
-def compute_temp(temp):
+def collect_temp(temp):
     if temp is not None and -20 < temp < 40:
-        if len(temp_storage) == 0 or abs(temp_storage[len(temp_storage) - 1] - temp) < 10:
-            temp_storage.append(temp)
+        temp_storage.append(temp)
     else:
         print('Ignoring temp: ' + str(temp))
 
 
-def compute_huminity(hum):
+def collect_huminity(hum):
     if hum is not None and 0 < hum < 100:
-        if len(hum_storage) == 0 or abs(hum_storage[len(hum_storage) - 1] - hum) < 10:
-            hum_storage.append(hum)
+        hum_storage.append(hum)
     else:
         print('Ignoring hum: ' + str(hum))
+
+
+def exponential_smoothing(current_value, last_value):
+    return smoothing_alpha * current_value + (1 - smoothing_alpha) * last_value
 
 
 def calc_average(array):
@@ -77,16 +82,33 @@ def send_ha_autodiscovery(mqtt_client):
 
 
 def send_measurements(mqtt_client):
-    global temp_storage
-    global hum_storage
+    global temp_storage, hum_storage, last_temp, last_hum
+
     average_temp = calc_average(temp_storage)
     average_hum = calc_average(hum_storage)
 
-    mqtt_client.publish(mqtt_temp_sensor_topic, average_temp)
-    mqtt_client.publish(mqtt_hum_sensor_topic, average_hum)
+    if last_temp is None:
+        filtered_temp = average_temp
+    else:
+        filtered_temp = exponential_smoothing(average_temp, last_temp)
+
+    if last_hum is None:
+        filtered_hum = average_hum
+    else:
+        filtered_hum = exponential_smoothing(average_hum, last_hum)
+
+    mqtt_client.publish(mqtt_temp_sensor_topic, filtered_temp)
+    mqtt_client.publish(mqtt_hum_sensor_topic, filtered_hum)
+
     print("Sending: " + str(average_temp) + '°C and ' + str(average_hum) + '%')
+    if log_out_flag:
+        filtered_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(filtered_temp), str(filtered_hum)))
+        filtered_data_file.flush()
+
     temp_storage.clear()
     hum_storage.clear()
+    last_temp = filtered_temp
+    last_hum = filtered_hum
 
 
 mqtt_prefix = mqtt_client_name + '/sensor/'
@@ -95,8 +117,11 @@ mqtt_temp_sensor_topic = mqtt_prefix + 'temperature/state'
 mqtt_hum_sensor_topic = mqtt_prefix + 'humidity/state'
 temp_storage = []
 hum_storage = []
+last_temp = None
+last_hum = None
 last_measurement_sent = datetime.datetime.now()
-raw_data_file = open('/home/pi/temp-hum-sensor-raw_temp.csv', 'a+')
+raw_data_file = open('/home/pi/temp-hum-sensor-raw.csv', 'a+')
+filtered_data_file = open('/home/pi/temp-hum-sensor-filtered.csv', 'a+')
 
 
 def main():
@@ -115,8 +140,8 @@ def main():
         humidity, temperature = get_sensor_values()
 
         if startup_readings == 0:
-            compute_temp(temperature)
-            compute_huminity(humidity)
+            collect_temp(temperature)
+            collect_huminity(humidity)
             if log_out_flag:
                 raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
                 raw_data_file.flush()
