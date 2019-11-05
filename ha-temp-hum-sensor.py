@@ -68,6 +68,7 @@ def send_ha_autodiscovery(mqtt_client):
                               '"state_topic": "%s", \
                                "availability_topic":"%s"}' % (mqtt_client_name, mqtt_hum_sensor_topic, mqtt_availability_topic)
     ha_discover_content_invalid = '{"name":"%s Invalid measurements",' \
+                                  '"unit_of_measurement":"measurements",' \
                                   '"state_topic": "%s", \
                                    "availability_topic":"%s"}' % (mqtt_client_name, mqtt_invalid_sensor_topic, mqtt_availability_topic)
 
