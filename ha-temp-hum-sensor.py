@@ -11,7 +11,7 @@ log_out_flag = False
 sensor = Adafruit_DHT.DHT22
 startup_readings = 3
 
-smoothing_alpha = 0.25
+smoothing_alpha = 0.4
 
 
 def get_sensor_values():
@@ -23,6 +23,7 @@ def collect_temp(temp):
     if temp is not None and -20 < temp < 40:
         temp_storage.append(temp)
     else:
+        increment_invalid_count()
         print('Ignoring temp: ' + str(temp))
 
 
@@ -30,6 +31,7 @@ def collect_huminity(hum):
     if hum is not None and 0 < hum < 100:
         hum_storage.append(hum)
     else:
+        increment_invalid_count()
         print('Ignoring hum: ' + str(hum))
 
 
@@ -133,6 +135,11 @@ def parse_config():
     mqtt_invalid_sensor_topic = mqtt_prefix + 'invalid/state'
 
 
+def increment_invalid_count():
+    global invalid_measure_count
+    invalid_measure_count = invalid_measure_count + 1
+
+
 send_interval = None
 pin = None
 mqtt_client_name = None
@@ -159,7 +166,7 @@ if log_out_flag:
 
 
 def main():
-    global startup_readings, last_measurement_sent, invalid_measure_count
+    global startup_readings, last_measurement_sent
 
     parse_config()
 
@@ -180,8 +187,6 @@ def main():
             if log_out_flag:
                 raw_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(temperature), str(humidity)))
                 raw_data_file.flush()
-            if humidity is None or temperature is None:
-                invalid_measure_count = invalid_measure_count + 1
 
             if last_measurement_sent < datetime.datetime.now() - send_interval:
                 last_measurement_sent = datetime.datetime.now()
