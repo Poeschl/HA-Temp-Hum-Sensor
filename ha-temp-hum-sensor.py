@@ -43,7 +43,7 @@ def calc_average(array):
     sum = 0
     for elem in array:
         sum = sum + elem
-    return round(sum / len(array), 1)
+    return sum / len(array)
 
 
 def on_mqtt_connect(client, userdata, flags, rc):
@@ -98,13 +98,16 @@ def send_measurements(mqtt_client):
     else:
         filtered_hum = exponential_smoothing(average_hum, last_hum)
 
-    mqtt_client.publish(mqtt_temp_sensor_topic, filtered_temp)
-    mqtt_client.publish(mqtt_hum_sensor_topic, filtered_hum)
+    rounded_temp = round(filtered_temp, 1)
+    rounded_hum = round(filtered_hum, 1)
+
+    mqtt_client.publish(mqtt_temp_sensor_topic, rounded_temp)
+    mqtt_client.publish(mqtt_hum_sensor_topic, rounded_hum)
     mqtt_client.publish(mqtt_invalid_sensor_topic, invalid_measure_count)
 
-    print("Sending: " + str(average_temp) + '°C and ' + str(average_hum) + '%')
+    print("Sending: " + str(rounded_temp) + '°C and ' + str(rounded_hum) + '%')
     if log_out_flag:
-        filtered_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(filtered_temp), str(filtered_hum)))
+        filtered_data_file.write("%s;%s;%s\n" % (str(datetime.datetime.now()), str(rounded_temp), str(rounded_hum)))
         filtered_data_file.flush()
 
     temp_storage.clear()
