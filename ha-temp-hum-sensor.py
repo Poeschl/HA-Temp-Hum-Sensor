@@ -11,7 +11,7 @@ log_out_flag = False
 sensor = Adafruit_DHT.DHT22
 startup_readings = 3
 
-smoothing_alpha = 0.4
+smoothing_alpha = 0.3
 
 
 def get_sensor_values():
@@ -165,8 +165,8 @@ last_measurement_sent = datetime.datetime.now()
 invalid_measure_count = 0
 
 if log_out_flag:
-    raw_data_file = open('/home/pi/temp-hum-sensor-raw.csv', 'a+')
-    filtered_data_file = open('/home/pi/temp-hum-sensor-filtered.csv', 'a+')
+    raw_data_file = open('temp-hum-sensor-raw.csv', 'a+')
+    filtered_data_file = open('temp-hum-sensor-filtered.csv', 'a+')
 
 
 def main():
